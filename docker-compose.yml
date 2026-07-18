@@ -3,7 +3,7 @@ version: "3.8"
 services:
   fanhist:
     build: .
-    # of: image: <jouw-dockerhub-username>/fanhist:latest
+    # or: image: <your-dockerhub-username>/fanhist:latest
     container_name: fanhist
     restart: unless-stopped
     ports:

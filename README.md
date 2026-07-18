@@ -1,71 +1,71 @@
 # fanhist
 
-Een kleine, zelf-gehoste iDRAC fan controller — geïnspireerd op [Hush](https://github.com/natankeddem/hush),
-maar simpeler opgezet en met ingebouwde geschiedenis.
+A small, self-hosted iDRAC fan controller — inspired by [Hush](https://github.com/natankeddem/hush),
+but built simpler and with built-in history.
 
-## ⚠️ Waarschuwing
+## ⚠️ Warning
 
-Dit is een v1, gebouwd en getest tegen één specifieke omgeving (Dell R720, iDRAC 7). Een bug
-of verkeerde configuratie kan ertoe leiden dat de fans niet (voldoende) opschalen bij hitte.
-Gebruik op eigen risico, houd in de gaten of de curve doet wat je verwacht, en overweeg een
-externe temperatuur-alert (bijv. in Home Assistant of Grafana) als extra vangnet.
+This is a v1, built and tested against one specific environment (Dell R720, iDRAC 7). A bug
+or a wrong setting could cause the fans to not ramp up (enough) under heat. Use at your own
+risk, keep an eye on whether the curve does what you expect, and consider an external
+temperature alert (e.g. in Home Assistant or Grafana) as an extra safety net.
 
-## Wat het doet
+## What it does
 
-- Leest CPU/Inlet-temperatuur rechtstreeks via `ipmitool` (lokaal IPMI, geen Redfish/TLS nodig —
-  dat bleek op oudere iDRAC-generaties zoals iDRAC 7 onbetrouwbaar traag)
-- Leest optioneel een disktemperatuur op via SSH (bijv. TrueNAS `drivetemp`/hwmon)
-- Berekent het fanpercentage via een instelbare curve (temperatuur → %)
-- Zet de fans via IPMI raw-commands (`0x30 0x30 ...`)
-- Logt elke meting naar SQLite en toont een grafiek + curve-editor op een klein dashboard
+- Reads CPU/Inlet temperature directly via `ipmitool` (local IPMI, no Redfish/TLS needed —
+  that turned out to be unreliably slow on older iDRAC generations like iDRAC 7)
+- Optionally reads a disk temperature over SSH (e.g. TrueNAS `drivetemp`/hwmon)
+- Computes the fan percentage via a configurable curve (temperature → %)
+- Sets the fans via IPMI raw commands (`0x30 0x30 ...`)
+- Logs every reading to SQLite and shows a graph + curve editor on a small dashboard
 
-## Snel starten
+## Quick start
 
-1. Zorg dat IPMI over LAN aanstaat op je iDRAC (iDRAC Settings → Network → IPMI Settings).
+1. Make sure IPMI over LAN is enabled on your iDRAC (iDRAC Settings → Network → IPMI Settings).
 2. Start:
 
    ```bash
    docker compose up -d --build
    ```
 
-3. Open `http://<host>:8181` voor het dashboard.
-4. Scroll naar "Instellingen" en vul je iDRAC-host, gebruiker, wachtwoord en sensornaam in,
-   klik "Verbinding testen" om te checken of het werkt, en klik daarna "Instellingen opslaan".
-5. (Optioneel, voor disktemperatuur) Klik in hetzelfde paneel op "Sleutel (opnieuw) genereren".
-   De publieke sleutel verschijnt meteen — plak die in `authorized_keys` van je NAS/host (of via
-   de TrueNAS UI onder Credentials → Users → SSH Public Key). Vul daarna de SSH-host/gebruiker
-   in, klik "Diskverbinding testen", en sla op.
+3. Open `http://<host>:8181` for the dashboard.
+4. Scroll to "Settings" and fill in your iDRAC host, user, password, and sensor name,
+   click "Test connection" to check it works, then click "Save settings".
+5. (Optional, for disk temperature) In the same panel, click "Generate key" (or
+   "Regenerate key"). The public key appears immediately — paste it into `authorized_keys`
+   on your NAS/host (or via the TrueNAS UI under Credentials → Users → SSH Public Key).
+   Then fill in the SSH host/user, click "Test disk connection", and save.
 
-Alle instellingen (inclusief de iDRAC-gegevens en de SSH-sleutel) worden bewaard in de SQLite-
-database onder `./data` — dus ze overleven een herstart of rebuild van de container.
+All settings (including the iDRAC credentials and the SSH key) are stored in the SQLite
+database under `./data` — so they survive a container restart or rebuild.
 
-## Instellingen
+## Settings
 
-Alles is te configureren vanuit het dashboard (paneel "Instellingen"), geen environment-
-variabelen of herstart nodig:
+Everything is configurable from the dashboard ("Settings" panel), no environment variables
+or restarts needed:
 
-- **iDRAC**: host/IP, gebruiker, wachtwoord, sensornaam (`ipmitool sensor list` voor opties)
-- **Disktemperatuur (optioneel)**: SSH-host, SSH-gebruiker, hoe meerdere disks gecombineerd
-  worden (gemiddelde/max/min), en het commando dat de temperaturen uitleest. De SSH-sleutel
-  wordt in de container gegenereerd via de knop "Sleutel (opnieuw) genereren" — er hoeft dus
-  niets handmatig gekopieerd te worden naar de container zelf.
-- **Algemeen**: meetinterval, IPMI-timeout, hoe lang geschiedenis bewaard blijft
+- **iDRAC**: host/IP, user, password, sensor name (`ipmitool sensor list` for options)
+- **Disk temperature (optional)**: SSH host, SSH user, how multiple disks are combined
+  (average/max/min), and the command that reads out the temperatures. The SSH key is
+  generated inside the container via the "Generate key" button — nothing needs to be
+  copied into the container by hand.
+- **General**: measurement interval, IPMI timeout, how long history is kept
 
-Alleen `DB_PATH` (waar de SQLite-database staat) is nog een environment-variabele, voor als je
-die ergens anders wilt zetten dan het standaard `/data/fanhist.db`.
+Only `DB_PATH` (where the SQLite database lives) is still an environment variable, in case
+you want to put it somewhere other than the default `/data/fanhist.db`.
 
-## Curve aanpassen
+## Adjusting the curve
 
-Open het dashboard, scroll naar "Fan curve", pas punten aan of voeg toe, en klik "Opslaan".
-De curve wordt lineair geïnterpoleerd tussen de punten; onder het laagste punt geldt het
-laagste percentage, boven het hoogste punt het hoogste.
+Open the dashboard, scroll to "Fan curve", adjust or add points, and click "Save". The
+curve is linearly interpolated between points; below the lowest point the lowest
+percentage applies, above the highest point the highest percentage applies.
 
-## Bekende beperkingen (v1)
+## Known limitations (v1)
 
-- Geen authenticatie op het dashboard — niet naar het publieke internet exposen.
-- Eén iDRAC per container; voor meerdere hosts draai je meerdere instanties.
-- `DISK_TEMP_CMD` gaat uit van een Linux-hwmon-achtige uitvoer; pas aan voor andere OS'en.
+- No authentication on the dashboard — don't expose it to the public internet.
+- One iDRAC per container; run multiple instances for multiple hosts.
+- `DISK_TEMP_CMD` assumes Linux-hwmon-like output; adjust for other OSes.
 
-## Licentie
+## License
 
-MIT — zie [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).

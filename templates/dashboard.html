@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>fanhist</title>
@@ -39,18 +39,18 @@
 
   <div class="grid">
     <div class="card"><div class="label">CPU / Inlet</div><div class="value" id="cpuTemp">–</div></div>
-    <div class="card"><div class="label">Disk (<span id="diskCount">0</span> schijven, gem.)</div><div class="value" id="diskTemp">–</div></div>
-    <div class="card"><div class="label">Effectief</div><div class="value" id="effTemp">–</div></div>
+    <div class="card"><div class="label">Disk (<span id="diskCount">0</span> disks, avg)</div><div class="value" id="diskTemp">–</div></div>
+    <div class="card"><div class="label">Effective</div><div class="value" id="effTemp">–</div></div>
     <div class="card"><div class="label">Fan speed</div><div class="value" id="fanPct">–</div></div>
   </div>
   <div class="error" id="errorBox"></div>
 
   <div class="panel">
-    <h2>Geschiedenis</h2>
+    <h2>History</h2>
     <select id="rangeSelect">
-      <option value="6">6 uur</option>
-      <option value="24" selected>24 uur</option>
-      <option value="168">7 dagen</option>
+      <option value="6">6 hours</option>
+      <option value="24" selected>24 hours</option>
+      <option value="168">7 days</option>
     </select>
     <canvas id="historyChart"></canvas>
   </div>
@@ -58,60 +58,60 @@
   <div class="panel">
     <h2>Fan curve</h2>
     <table id="curveTable"></table>
-    <button onclick="addPoint()">+ Punt toevoegen</button>
-    <button onclick="saveCurve()">Opslaan</button>
+    <button onclick="addPoint()">+ Add point</button>
+    <button onclick="saveCurve()">Save</button>
   </div>
 
   <div class="panel">
-    <h2>Instellingen</h2>
+    <h2>Settings</h2>
 
     <h3>iDRAC</h3>
     <div class="field-row">
       <label>Host/IP<input id="set_idrac_host" type="text" placeholder="192.168.50.11"></label>
-      <label>Gebruiker<input id="set_idrac_user" type="text" placeholder="root"></label>
-      <label>Wachtwoord<input id="set_idrac_pass" type="password"></label>
-      <label>Sensor naam<input id="set_cpu_sensor_name" type="text" placeholder="Inlet Temp"></label>
+      <label>User<input id="set_idrac_user" type="text" placeholder="root"></label>
+      <label>Password<input id="set_idrac_pass" type="password"></label>
+      <label>Sensor name<input id="set_cpu_sensor_name" type="text" placeholder="Inlet Temp"></label>
     </div>
-    <button onclick="testIdrac()">Verbinding testen</button>
+    <button onclick="testIdrac()">Test connection</button>
     <span id="idracTestResult" class="test-result"></span>
 
-    <h3>Disktemperatuur (optioneel, via SSH)</h3>
+    <h3>Disk temperature (optional, via SSH)</h3>
     <div class="field-row">
-      <label>SSH host<input id="set_disk_ssh_host" type="text" placeholder="leeg = uitgeschakeld"></label>
-      <label>SSH gebruiker<input id="set_disk_ssh_user" type="text" placeholder="root"></label>
-      <label>Combineren
+      <label>SSH host<input id="set_disk_ssh_host" type="text" placeholder="empty = disabled"></label>
+      <label>SSH user<input id="set_disk_ssh_user" type="text" placeholder="root"></label>
+      <label>Combine
         <select id="set_disk_temp_aggregation">
-          <option value="avg">gemiddelde</option>
+          <option value="avg">average</option>
           <option value="max">max</option>
           <option value="min">min</option>
         </select>
       </label>
     </div>
-    <label class="block">Commando (geeft één temperatuur per regel terug, m°C of °C)
+    <label class="block">Command (must return one temperature per line, m°C or °C)
       <textarea id="set_disk_temp_cmd" rows="3"></textarea>
     </label>
 
     <div class="ssh-key-box">
-      <div id="sshKeyStatus" class="muted">SSH-sleutel: laden...</div>
-      <button onclick="generateSshKey()">Sleutel (opnieuw) genereren</button>
+      <div id="sshKeyStatus" class="muted">SSH key: loading...</div>
+      <button onclick="generateSshKey()">Generate (regenerate) key</button>
       <div id="sshPubKeyWrap" style="display:none">
-        <label class="block">Publieke sleutel — plak dit in <code>authorized_keys</code> op je NAS/host voor de bovenstaande SSH-gebruiker
+        <label class="block">Public key — paste this into <code>authorized_keys</code> on your NAS/host for the SSH user above
           <textarea id="sshPubKey" readonly rows="2"></textarea>
         </label>
-        <button onclick="copyPubKey()">Kopiëren</button>
+        <button onclick="copyPubKey()">Copy</button>
       </div>
     </div>
-    <button onclick="testDisk()">Diskverbinding testen</button>
+    <button onclick="testDisk()">Test disk connection</button>
     <span id="diskTestResult" class="test-result"></span>
 
-    <h3>Algemeen</h3>
+    <h3>General</h3>
     <div class="field-row">
       <label>Interval (s)<input id="set_interval_seconds" type="number" min="5"></label>
       <label>IPMI timeout (s)<input id="set_ipmi_timeout" type="number" min="1"></label>
-      <label>Bewaren (dagen)<input id="set_history_retention_days" type="number" min="1"></label>
+      <label>Retention (days)<input id="set_history_retention_days" type="number" min="1"></label>
     </div>
 
-    <button onclick="saveSettings()">Instellingen opslaan</button>
+    <button onclick="saveSettings()">Save settings</button>
     <span id="settingsSaved" class="test-result"></span>
   </div>
 
@@ -201,7 +201,7 @@ async function loadSettings() {
   document.getElementById('set_idrac_host').value = s.idrac_host || '';
   document.getElementById('set_idrac_user').value = s.idrac_user || '';
   document.getElementById('set_idrac_pass').value = '';
-  document.getElementById('set_idrac_pass').placeholder = s.idrac_pass === '__SET__' ? '•••••• (leeg laten = ongewijzigd)' : '(nog niet ingesteld)';
+  document.getElementById('set_idrac_pass').placeholder = s.idrac_pass === '__SET__' ? '•••••• (leave blank to keep unchanged)' : '(not set yet)';
   document.getElementById('set_cpu_sensor_name').value = s.cpu_sensor_name || '';
   document.getElementById('set_disk_ssh_host').value = s.disk_ssh_host || '';
   document.getElementById('set_disk_ssh_user').value = s.disk_ssh_user || '';
@@ -235,12 +235,12 @@ async function saveSettings() {
     body: JSON.stringify(payload),
   });
   if (r.ok) {
-    msg.textContent = 'Opgeslagen ✓';
+    msg.textContent = 'Saved ✓';
     msg.className = 'test-result ok';
     loadSettings();
   } else {
     const err = await r.json();
-    msg.textContent = 'Fout: ' + (err.error || r.status);
+    msg.textContent = 'Error: ' + (err.error || r.status);
     msg.className = 'test-result fail';
   }
   setTimeout(() => { msg.textContent = ''; }, 4000);
@@ -248,7 +248,7 @@ async function saveSettings() {
 
 async function testIdrac() {
   const el = document.getElementById('idracTestResult');
-  el.textContent = 'Bezig...';
+  el.textContent = 'Testing...';
   el.className = 'test-result';
   const r = await fetch('/api/test/idrac', { method: 'POST' });
   const res = await r.json();
@@ -258,7 +258,7 @@ async function testIdrac() {
 
 async function testDisk() {
   const el = document.getElementById('diskTestResult');
-  el.textContent = 'Bezig...';
+  el.textContent = 'Testing...';
   el.className = 'test-result';
   const r = await fetch('/api/test/disk', { method: 'POST' });
   const res = await r.json();
@@ -272,27 +272,27 @@ async function loadSshKey() {
   const status = document.getElementById('sshKeyStatus');
   const wrap = document.getElementById('sshPubKeyWrap');
   if (s.exists) {
-    status.textContent = 'SSH-sleutel: aanwezig';
+    status.textContent = 'SSH key: present';
     document.getElementById('sshPubKey').value = s.public_key;
     wrap.style.display = 'block';
   } else {
-    status.textContent = 'SSH-sleutel: nog niet gegenereerd';
+    status.textContent = 'SSH key: not generated yet';
     wrap.style.display = 'none';
   }
 }
 
 async function generateSshKey() {
-  if (document.getElementById('sshKeyStatus').textContent.includes('aanwezig')) {
-    if (!confirm('Dit vervangt de bestaande sleutel. Je moet de nieuwe publieke sleutel opnieuw toevoegen aan je NAS/host. Doorgaan?')) return;
+  if (document.getElementById('sshKeyStatus').textContent.includes('present')) {
+    if (!confirm('This replaces the existing key. You will need to add the new public key to your NAS/host again. Continue?')) return;
   }
   const r = await fetch('/api/ssh-key/generate', { method: 'POST' });
   const s = await r.json();
   if (r.ok) {
-    document.getElementById('sshKeyStatus').textContent = 'SSH-sleutel: aanwezig (nieuw gegenereerd)';
+    document.getElementById('sshKeyStatus').textContent = 'SSH key: present (newly generated)';
     document.getElementById('sshPubKey').value = s.public_key;
     document.getElementById('sshPubKeyWrap').style.display = 'block';
   } else {
-    alert('Genereren mislukt: ' + (s.error || r.status));
+    alert('Key generation failed: ' + (s.error || r.status));
   }
 }
 
