@@ -12,6 +12,24 @@ but built simpler and with built-in history.
 for what's expected to work on other Dell generations (R610–R940, iDRAC 6/7/8/9) and what
 won't (non-Dell BMCs like HPE iLO or Supermicro IPMI).
 
+## Screenshots
+
+Dashboard — live temps, fan speed, and history:
+
+![Dashboard](images/dashboard.png)
+
+Fan curve — drag points directly on the chart, or edit the table:
+
+![Fan curve editor](images/fan-curve.png)
+
+Settings — iDRAC connection and sensor discovery:
+
+![iDRAC settings](images/settings-idrac.png)
+
+Settings — per-disk temperature selection over SSH:
+
+![Disk temperature settings](images/settings-disk.png)
+
 ## ⚠️ Warning
 
 This is a v1, built and tested against one specific environment (Dell R720, iDRAC 7). A bug
