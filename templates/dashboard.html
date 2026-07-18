@@ -77,7 +77,7 @@
       <label>User<input id="set_idrac_user" type="text" placeholder="root"></label>
       <label>Password<input id="set_idrac_pass" type="password"></label>
     </div>
-    <button onclick="testIdrac()">Test connection</button>
+    <button onclick="testIdrac(false, true)">Test connection</button>
     <span id="idracTestResult" class="test-result"></span>
     <div id="cpuSensorList"></div>
     <label class="block" style="max-width: 240px">CPU sensors combine
@@ -335,7 +335,7 @@ async function loadSettings() {
   document.getElementById('set_history_retention_days').value = s.history_retention_days;
 
   if (s.idrac_host && s.idrac_pass === '__SET__') {
-    testIdrac();
+    testIdrac(true, false); // quiet, one-shot — just populate the checklist, no repeating poll
   } else {
     renderCpuSensorChecklist();
   }
@@ -400,8 +400,31 @@ function diskFormOverrides() {
 }
 
 let cpuSensorRefreshTimer = null;
+let cpuSensorRefreshCount = 0;
+// Older iDRACs (e.g. iDRAC7) only support a handful of concurrent IPMI
+// sessions. Each refresh here opens its own ipmitool session, competing
+// with the control loop's own periodic reads — so this only runs for a
+// bounded diagnostic window, not indefinitely in the background.
+const CPU_SENSOR_REFRESH_MAX = 24; // 24 * 5s = 2 minutes
 
-async function testIdrac(silent) {
+function stopCpuSensorRefresh(note) {
+  if (cpuSensorRefreshTimer) {
+    clearInterval(cpuSensorRefreshTimer);
+    cpuSensorRefreshTimer = null;
+  }
+  cpuSensorRefreshCount = 0;
+  if (note) {
+    const el = document.getElementById('idracTestResult');
+    el.textContent = note;
+    el.className = 'test-result ok';
+  }
+}
+
+// startWatch: only an explicit user click should kick off the repeating
+// 5s poll — the automatic call on page load (loadSettings) just populates
+// the checklist once, so simply having the dashboard open doesn't create
+// ongoing IPMI session contention with the control loop.
+async function testIdrac(silent, startWatch) {
   // preserve whatever's currently checked before re-rendering
   const currentlyChecked = Array.from(
     document.querySelectorAll('#cpuSensorList input[type=checkbox]:checked')
@@ -422,12 +445,28 @@ async function testIdrac(silent) {
   if (res.ok) {
     cpuSensors = res.sensors;
     renderCpuSensorChecklist();
-    el.textContent = `Connected — found ${res.sensors.length} temperature sensor(s). Readings refresh every 5s — `
-      + `touch/stress a component and watch which one moves to identify unnamed sensors.`;
-    el.className = 'test-result ok';
-    if (!cpuSensorRefreshTimer) {
-      cpuSensorRefreshTimer = setInterval(() => testIdrac(true), 5000);
+
+    if (startWatch && !cpuSensorRefreshTimer) {
+      cpuSensorRefreshCount = 0;
+      cpuSensorRefreshTimer = setInterval(() => {
+        cpuSensorRefreshCount++;
+        if (cpuSensorRefreshCount >= CPU_SENSOR_REFRESH_MAX) {
+          stopCpuSensorRefresh('Live refresh stopped (to avoid competing with the control loop for IPMI sessions) — click Test connection to resume it.');
+          return;
+        }
+        testIdrac(true, false);
+      }, 5000);
     }
+
+    // Message reflects whether a watch is currently active, not just what
+    // triggered this particular call, so repeat ticks keep the right text.
+    if (cpuSensorRefreshTimer) {
+      el.textContent = `Connected — found ${res.sensors.length} temperature sensor(s). Readings refresh every 5s for 2 minutes — `
+        + `touch/stress a component and watch which one moves to identify unnamed sensors.`;
+    } else {
+      el.textContent = `Connected — found ${res.sensors.length} temperature sensor(s), pick which to use below.`;
+    }
+    el.className = 'test-result ok';
   } else if (!silent) {
     el.textContent = res.message;
     el.className = 'test-result fail';
