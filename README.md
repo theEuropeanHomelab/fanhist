@@ -21,12 +21,25 @@ temperature alert (e.g. in Home Assistant or Grafana) as an extra safety net.
 
 ## Quick start
 
+Every push to `main` is automatically built and published to
+`ghcr.io/grassiekuik/fanhist:latest` by [a GitHub Actions workflow](.github/workflows/docker-publish.yml),
+so `docker-compose.yml` just pulls the image — no need to have the source checked out on
+whatever host/UI you deploy with (e.g. a stack manager that only takes a compose file).
+
 1. Make sure IPMI over LAN is enabled on your iDRAC (iDRAC Settings → Network → IPMI Settings).
 2. Start:
 
    ```bash
-   docker compose up -d --build
+   docker compose up -d
    ```
+
+   (Prefer building from source instead? Swap the `image:` line in `docker-compose.yml` for
+   `build: .` — see the comment in that file.)
+
+   > First run only: the GHCR package may be private by default. If the pull fails with
+   > "unauthorized" or "denied", either make the package public (GitHub → your profile →
+   > Packages → fanhist → Package settings → Change visibility), or add GHCR credentials
+   > (a GitHub PAT with `read:packages`) wherever your Docker host authenticates registries.
 
 3. Open `http://<host>:8181` for the dashboard.
 4. Scroll to "Settings" and fill in your iDRAC host, user, password, and sensor name,

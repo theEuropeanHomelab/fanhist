@@ -2,8 +2,8 @@ version: "3.8"
 
 services:
   fanhist:
-    build: .
-    # or: image: <your-dockerhub-username>/fanhist:latest
+    image: ghcr.io/grassiekuik/fanhist:latest
+    # or build from source instead of pulling: build: .
     container_name: fanhist
     restart: unless-stopped
     ports:
