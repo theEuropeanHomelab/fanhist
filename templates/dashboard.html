@@ -32,6 +32,9 @@
   .test-result.fail { color: #ff6b6b; }
   .ssh-key-box { background: #171a1f; border-radius: 8px; padding: 12px 14px; margin: 12px 0; }
   .muted { color: var(--muted); font-size: 0.9em; }
+  .sensor-checklist { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 12px 0; }
+  .sensor-check { display: flex; align-items: center; gap: 6px; font-size: 0.9em; color: var(--text); cursor: pointer; }
+  .sensor-check input { margin: 0; }
 </style>
 </head>
 <body>
@@ -70,13 +73,17 @@
       <label>Host/IP<input id="set_idrac_host" type="text" placeholder="192.168.50.11"></label>
       <label>User<input id="set_idrac_user" type="text" placeholder="root"></label>
       <label>Password<input id="set_idrac_pass" type="password"></label>
-      <label>Sensor name
-        <input id="set_cpu_sensor_name" type="text" list="sensorOptions" placeholder="click Test connection to list options">
-        <datalist id="sensorOptions"></datalist>
-      </label>
     </div>
     <button onclick="testIdrac()">Test connection</button>
     <span id="idracTestResult" class="test-result"></span>
+    <div id="cpuSensorList" class="sensor-checklist"></div>
+    <label class="block" style="max-width: 240px">CPU sensors combine
+      <select id="set_cpu_temp_aggregation">
+        <option value="max">max (safest)</option>
+        <option value="avg">average</option>
+        <option value="min">min</option>
+      </select>
+    </label>
 
     <h3>Disk temperature (optional, via SSH)</h3>
     <div class="field-row">
@@ -200,6 +207,26 @@ async function loadCurve() {
   renderCurveTable();
 }
 
+let cpuSensors = [];
+let selectedCpuSensors = [];
+
+function renderCpuSensorChecklist() {
+  const container = document.getElementById('cpuSensorList');
+  if (cpuSensors.length === 0) {
+    container.innerHTML = '<div class="muted">No sensors listed yet — click Test connection.</div>';
+    return;
+  }
+  container.innerHTML = '';
+  cpuSensors.forEach(s => {
+    const label = document.createElement('label');
+    label.className = 'sensor-check';
+    const checked = selectedCpuSensors.includes(s.name) ? 'checked' : '';
+    const readingText = s.reading != null ? ` — ${s.reading}°C` : '';
+    label.innerHTML = `<input type="checkbox" value="${s.name}" ${checked}>${s.name}${readingText}`;
+    container.appendChild(label);
+  });
+}
+
 async function loadSettings() {
   const r = await fetch('/api/settings');
   const s = await r.json();
@@ -207,7 +234,8 @@ async function loadSettings() {
   document.getElementById('set_idrac_user').value = s.idrac_user || '';
   document.getElementById('set_idrac_pass').value = '';
   document.getElementById('set_idrac_pass').placeholder = s.idrac_pass === '__SET__' ? '•••••• (leave blank to keep unchanged)' : '(not set yet)';
-  document.getElementById('set_cpu_sensor_name').value = s.cpu_sensor_name || '';
+  document.getElementById('set_cpu_temp_aggregation').value = s.cpu_temp_aggregation || 'max';
+  selectedCpuSensors = s.cpu_sensor_names || [];
   document.getElementById('set_disk_ssh_host').value = s.disk_ssh_host || '';
   document.getElementById('set_disk_ssh_user').value = s.disk_ssh_user || '';
   document.getElementById('set_disk_temp_aggregation').value = s.disk_temp_aggregation || 'avg';
@@ -215,13 +243,24 @@ async function loadSettings() {
   document.getElementById('set_interval_seconds').value = s.interval_seconds;
   document.getElementById('set_ipmi_timeout').value = s.ipmi_timeout;
   document.getElementById('set_history_retention_days').value = s.history_retention_days;
+
+  if (s.idrac_host && s.idrac_pass === '__SET__') {
+    testIdrac();
+  } else {
+    renderCpuSensorChecklist();
+  }
 }
 
 async function saveSettings() {
+  const cpu_sensor_names = Array.from(
+    document.querySelectorAll('#cpuSensorList input[type=checkbox]:checked')
+  ).map(cb => cb.value);
+
   const payload = {
     idrac_host: document.getElementById('set_idrac_host').value.trim(),
     idrac_user: document.getElementById('set_idrac_user').value.trim(),
-    cpu_sensor_name: document.getElementById('set_cpu_sensor_name').value.trim(),
+    cpu_sensor_names,
+    cpu_temp_aggregation: document.getElementById('set_cpu_temp_aggregation').value,
     disk_ssh_host: document.getElementById('set_disk_ssh_host').value.trim(),
     disk_ssh_user: document.getElementById('set_disk_ssh_user').value.trim(),
     disk_temp_aggregation: document.getElementById('set_disk_temp_aggregation').value,
@@ -255,7 +294,6 @@ function idracFormOverrides() {
   const overrides = {
     idrac_host: document.getElementById('set_idrac_host').value.trim(),
     idrac_user: document.getElementById('set_idrac_user').value.trim(),
-    cpu_sensor_name: document.getElementById('set_cpu_sensor_name').value.trim(),
   };
   const passVal = document.getElementById('set_idrac_pass').value;
   if (passVal) overrides.idrac_pass = passVal;
@@ -272,6 +310,12 @@ function diskFormOverrides() {
 }
 
 async function testIdrac() {
+  // preserve whatever's currently checked before re-rendering
+  const currentlyChecked = Array.from(
+    document.querySelectorAll('#cpuSensorList input[type=checkbox]:checked')
+  ).map(cb => cb.value);
+  if (currentlyChecked.length) selectedCpuSensors = currentlyChecked;
+
   const el = document.getElementById('idracTestResult');
   el.textContent = 'Testing connection...';
   el.className = 'test-result';
@@ -282,15 +326,9 @@ async function testIdrac() {
   });
   const res = await r.json();
   if (res.ok) {
-    const datalist = document.getElementById('sensorOptions');
-    datalist.innerHTML = '';
-    res.sensors.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s.name;
-      opt.textContent = s.reading != null ? `${s.name} — ${s.reading}°C` : s.name;
-      datalist.appendChild(opt);
-    });
-    el.textContent = `Connected — found ${res.sensors.length} temperature sensor(s), pick one in Sensor name`;
+    cpuSensors = res.sensors;
+    renderCpuSensorChecklist();
+    el.textContent = `Connected — found ${res.sensors.length} temperature sensor(s), pick which to use below`;
     el.className = 'test-result ok';
   } else {
     el.textContent = res.message;

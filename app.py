@@ -46,7 +46,8 @@ SETTINGS_DEFAULTS = {
     "idrac_host": os.environ.get("IDRAC_HOST", ""),
     "idrac_user": os.environ.get("IDRAC_USER", "root"),
     "idrac_pass": os.environ.get("IDRAC_PASS", ""),
-    "cpu_sensor_name": os.environ.get("CPU_SENSOR_NAME", ""),
+    "cpu_sensor_names": [s.strip() for s in os.environ.get("CPU_SENSOR_NAME", "").split(",") if s.strip()],
+    "cpu_temp_aggregation": os.environ.get("CPU_TEMP_AGGREGATION", "max"),
     "disk_ssh_host": os.environ.get("DISK_SSH_HOST", ""),
     "disk_ssh_user": os.environ.get("DISK_SSH_USER", "root"),
     "disk_temp_cmd": os.environ.get("DISK_TEMP_CMD", DEFAULT_DISK_TEMP_CMD),
@@ -226,16 +227,23 @@ def _ipmi_base_cmd(settings):
     ]
 
 
-def ipmi_read_cpu_temp(settings):
-    """Read a named sensor via ipmitool. Raises on failure/timeout."""
-    cmd = _ipmi_base_cmd(settings) + ["sensor", "reading", settings["cpu_sensor_name"]]
+def ipmi_read_cpu_temps(settings):
+    """Read one or more named sensors via ipmitool. Raises on failure/timeout."""
+    names = settings["cpu_sensor_names"]
+    if not names:
+        return []
+    cmd = _ipmi_base_cmd(settings) + ["sensor", "reading"] + names
     out = subprocess.run(cmd, capture_output=True, text=True, timeout=settings["ipmi_timeout"])
     if out.returncode != 0:
         raise RuntimeError(f"ipmitool sensor reading failed: {out.stderr.strip()}")
-    match = re.search(r"[-+]?\d+(\.\d+)?", out.stdout)
-    if not match:
+    temps = []
+    for line in out.stdout.splitlines():
+        match = re.search(r"[-+]?\d+(\.\d+)?", line)
+        if match:
+            temps.append(float(match.group()))
+    if not temps:
         raise RuntimeError(f"Could not parse sensor output: {out.stdout!r}")
-    return float(match.group())
+    return temps
 
 
 def ipmi_list_sensors(settings):
@@ -307,13 +315,12 @@ def read_disk_temps(settings):
     return temps
 
 
-def aggregate_disk_temp(temps, settings):
+def aggregate_temps(temps, mode):
     if not temps:
         return None
-    aggregation = settings["disk_temp_aggregation"]
-    if aggregation == "max":
+    if mode == "max":
         return max(temps)
-    if aggregation == "min":
+    if mode == "min":
         return min(temps)
     return sum(temps) / len(temps)  # avg (default)
 
@@ -401,17 +408,18 @@ def control_loop():
         disk_temps = []
         disk_temp = None
         error = None
-        if settings["cpu_sensor_name"]:
+        if settings["cpu_sensor_names"]:
             try:
-                cpu_temp = ipmi_read_cpu_temp(settings)
+                cpu_temps = ipmi_read_cpu_temps(settings)
+                cpu_temp = aggregate_temps(cpu_temps, settings["cpu_temp_aggregation"])
             except Exception as exc:
                 error = f"CPU temp read failed: {exc}"
         else:
-            error = "CPU sensor not selected yet — pick one in Settings"
+            error = "No CPU sensors selected yet — pick some in Settings"
 
         try:
             disk_temps = read_disk_temps(settings)
-            disk_temp = aggregate_disk_temp(disk_temps, settings)
+            disk_temp = aggregate_temps(disk_temps, settings["disk_temp_aggregation"])
         except Exception as exc:
             error = (error + " | " if error else "") + f"Disk temp read failed: {exc}"
 

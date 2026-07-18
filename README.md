@@ -42,8 +42,9 @@ whatever host/UI you deploy with (e.g. a stack manager that only takes a compose
    > (a GitHub PAT with `read:packages`) wherever your Docker host authenticates registries.
 
 3. Open `http://<host>:8181` for the dashboard.
-4. Scroll to "Settings" and fill in your iDRAC host, user, password, and sensor name,
-   click "Test connection" to check it works, then click "Save settings".
+4. Scroll to "Settings" and fill in your iDRAC host, user, and password, then click
+   "Test connection" — this both verifies the connection and lists the available
+   temperature sensors so you can check off the one(s) to use. Then click "Save settings".
 5. (Optional, for disk temperature) In the same panel, click "Generate key" (or
    "Regenerate key"). The public key appears immediately — paste it into `authorized_keys`
    on your NAS/host (or via the TrueNAS UI under Credentials → Users → SSH Public Key).
@@ -57,7 +58,9 @@ database under `./data` — so they survive a container restart or rebuild.
 Everything is configurable from the dashboard ("Settings" panel), no environment variables
 or restarts needed:
 
-- **iDRAC**: host/IP, user, password, sensor name (`ipmitool sensor list` for options)
+- **iDRAC**: host/IP, user, password, and one or more temperature sensors (discovered
+  via "Test connection" — pick multiple if you want, e.g. Inlet + Exhaust, and how
+  they're combined: average/max/min)
 - **Disk temperature (optional)**: SSH host, SSH user, how multiple disks are combined
   (average/max/min), and the command that reads out the temperatures. The SSH key is
   generated inside the container via the "Generate key" button — nothing needs to be
