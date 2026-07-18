@@ -118,6 +118,8 @@
     <span id="settingsSaved" class="test-result"></span>
   </div>
 
+  <div class="muted" id="versionFooter" style="text-align:center; margin: -8px 0 8px;"></div>
+
 <script>
 let curve = [];
 
@@ -346,11 +348,18 @@ function copyPubKey() {
   navigator.clipboard.writeText(ta.value).catch(() => document.execCommand('copy'));
 }
 
+async function loadVersion() {
+  const r = await fetch('/api/version');
+  const s = await r.json();
+  document.getElementById('versionFooter').textContent = 'build: ' + s.git_sha.slice(0, 7);
+}
+
 document.getElementById('rangeSelect').addEventListener('change', refreshHistory);
 
 loadCurve();
 loadSettings();
 loadSshKey();
+loadVersion();
 refreshStatus();
 refreshHistory();
 setInterval(refreshStatus, 5000);

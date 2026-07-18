@@ -11,7 +11,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 COPY templates/ templates/
 
-VOLUME ["/data", "/config/ssh"]
+ARG GIT_SHA=unknown
+ENV GIT_SHA=${GIT_SHA}
+
+VOLUME ["/data"]
 EXPOSE 8081
 
 CMD ["python", "app.py"]

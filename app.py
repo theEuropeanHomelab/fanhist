@@ -31,6 +31,7 @@ from flask import Flask, jsonify, render_template, request
 # app runs, so upgraders with an existing docker-compose.yml keep working.
 
 DB_PATH = os.environ.get("DB_PATH", "/data/fanhist.db")
+GIT_SHA = os.environ.get("GIT_SHA", "unknown")
 
 SSH_KEY_DIR = os.path.join(os.path.dirname(DB_PATH), "ssh")
 SSH_KEY_PATH = os.path.join(SSH_KEY_DIR, "id_ed25519")
@@ -458,6 +459,11 @@ def dashboard():
 def api_status():
     with _lock:
         return jsonify(_state)
+
+
+@app.route("/api/version")
+def api_version():
+    return jsonify({"git_sha": GIT_SHA})
 
 
 @app.route("/api/history")
