@@ -74,7 +74,7 @@ you want to put it somewhere other than the default `/data/fanhist.db`.
 ## Adjusting the curve
 
 Open the dashboard, scroll to "Fan curve". Points can be dragged directly on the chart
-(temperature snaps to 10°C increments) or edited precisely via the table below it — either
+(snapped to whole degrees/percent) or edited precisely via the table below it — either
 way, click "Save" when done. The curve is linearly interpolated between points; below the
 lowest point the lowest percentage applies, above the highest point the highest percentage
 applies.
