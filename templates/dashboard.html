@@ -244,13 +244,19 @@ async function refreshHistory() {
   });
 }
 
+const CURVE_TEMP_SNAP = 10;
+
 let curveChart;
+let curveDragIndex = null;
+
 function renderCurveChart() {
   const points = [...curve]
     .sort((a, b) => a.temp - b.temp)
     .map(p => ({ x: p.temp, y: p.percent }));
   if (curveChart) curveChart.destroy();
-  const ctx = document.getElementById('curveChart').getContext('2d');
+  curveDragIndex = null;
+  const canvas = document.getElementById('curveChart');
+  const ctx = canvas.getContext('2d');
   curveChart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -262,10 +268,12 @@ function renderCurveChart() {
         tension: 0,
         pointRadius: 5,
         pointHoverRadius: 7,
+        pointHitRadius: 10,
       }],
     },
     options: {
       parsing: false,
+      animation: false,
       plugins: { legend: { display: false } },
       scales: {
         x: { type: 'linear', title: { display: true, text: 'Temp (°C)' }, min: 0 },
@@ -273,6 +281,38 @@ function renderCurveChart() {
       },
     },
   });
+
+  // Hand-rolled drag: assigning to on* (not addEventListener) so re-rendering
+  // the chart replaces the handler instead of stacking a new one each time —
+  // the underlying <canvas> element is reused across renderCurveChart() calls.
+  canvas.onmousedown = (e) => {
+    const hit = curveChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, false);
+    if (hit.length) {
+      curveDragIndex = hit[0].index;
+      canvas.style.cursor = 'grabbing';
+    }
+  };
+  canvas.onmousemove = (e) => {
+    if (curveDragIndex === null) return;
+    const rect = canvas.getBoundingClientRect();
+    let temp = curveChart.scales.x.getValueForPixel(e.clientX - rect.left);
+    let percent = curveChart.scales.y.getValueForPixel(e.clientY - rect.top);
+    temp = Math.max(0, Math.round(temp / CURVE_TEMP_SNAP) * CURVE_TEMP_SNAP);
+    percent = Math.max(0, Math.min(100, Math.round(percent)));
+    curveChart.data.datasets[0].data[curveDragIndex] = { x: temp, y: percent };
+    curveChart.update('none');
+  };
+  const endDrag = () => {
+    if (curveDragIndex === null) return;
+    curveDragIndex = null;
+    canvas.style.cursor = '';
+    curve = curveChart.data.datasets[0].data
+      .map(p => ({ temp: p.x, percent: p.y }))
+      .sort((a, b) => a.temp - b.temp);
+    renderCurveTableOnly();
+  };
+  canvas.onmouseup = endDrag;
+  canvas.onmouseleave = endDrag;
 }
 
 function updatePoint(i, field, value) {
@@ -280,7 +320,7 @@ function updatePoint(i, field, value) {
   renderCurveChart();
 }
 
-function renderCurveTable() {
+function renderCurveTableOnly() {
   const table = document.getElementById('curveTable');
   table.innerHTML = '<tr><th>Temp (°C)</th><th>Fan (%)</th><th></th></tr>';
   curve.forEach((p, i) => {
@@ -291,11 +331,18 @@ function renderCurveTable() {
       <td><button onclick="removePoint(${i})">x</button></td>`;
     table.appendChild(row);
   });
+}
+
+function renderCurveTable() {
+  renderCurveTableOnly();
   renderCurveChart();
 }
 
 function addPoint() {
-  curve.push({ temp: 50, percent: 30 });
+  const usedTemps = curve.map(p => p.temp);
+  let temp = 50;
+  while (usedTemps.includes(temp)) temp += CURVE_TEMP_SNAP;
+  curve.push({ temp, percent: 30 });
   renderCurveTable();
 }
 
