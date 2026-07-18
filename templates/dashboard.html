@@ -252,8 +252,18 @@ let selectedCpuSensors = [];
 
 const SENSOR_CATEGORY_ORDER = ['CPU', 'PCI', 'Drive', 'GPU', 'Chassis', 'Inlet / Ambient', 'Exhaust', 'Other'];
 
-function sensorCategory(name) {
-  const n = name.toLowerCase();
+const ENTITY_LABEL_CATEGORY = {
+  'Processor': 'CPU',
+  'System Board': 'Chassis',
+  'Air Inlet': 'Inlet / Ambient',
+};
+
+function sensorCategory(s) {
+  // Name keywords first — a name like "Exhaust Temp" is more specific than
+  // its entity ID (which is often just the generic "System Board" for any
+  // board-mounted sensor). Entity ID is only consulted when the name gives
+  // no clue at all, i.e. truly anonymous sensors like a bare "Temp".
+  const n = s.name.toLowerCase();
   if (n.includes('cpu') || n.includes('proc')) return 'CPU';
   if (n.includes('pci')) return 'PCI';
   if (n.includes('drive') || n.includes('disk') || n.includes('hdd') || n.includes('ssd')) return 'Drive';
@@ -261,6 +271,9 @@ function sensorCategory(name) {
   if (n.includes('chassis') || n.includes('board') || n.includes('system') || n.includes('planar')) return 'Chassis';
   if (n.includes('inlet') || n.includes('ambient')) return 'Inlet / Ambient';
   if (n.includes('exhaust')) return 'Exhaust';
+  if (s.entity_label && ENTITY_LABEL_CATEGORY[s.entity_label]) {
+    return ENTITY_LABEL_CATEGORY[s.entity_label];
+  }
   return 'Other';
 }
 
@@ -274,7 +287,7 @@ function renderCpuSensorChecklist() {
 
   const groups = {};
   cpuSensors.forEach(s => {
-    const cat = sensorCategory(s.name);
+    const cat = sensorCategory(s);
     (groups[cat] = groups[cat] || []).push(s);
   });
 
@@ -296,7 +309,8 @@ function renderCpuSensorChecklist() {
       const readingText = s.reading != null ? ` — ${s.reading}°C` : '';
       const instanceText = s.instance != null ? ` #${s.instance}` : '';
       const critText = s.upper_crit != null ? ` (crit ${s.upper_crit}°C)` : '';
-      label.innerHTML = `<input type="checkbox" value="${s.name}" ${checked}>${s.name}${instanceText}${readingText}${critText}`;
+      const entityText = s.entity_label ? ` · ${s.entity_label}` : (s.entity ? ` · entity ${s.entity}` : '');
+      label.innerHTML = `<input type="checkbox" value="${s.name}" ${checked}>${s.name}${instanceText}${readingText}${critText}${entityText}`;
       row.appendChild(label);
     });
     container.appendChild(row);

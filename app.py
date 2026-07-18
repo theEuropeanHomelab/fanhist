@@ -258,6 +258,41 @@ def ipmi_read_cpu_temps(settings):
     return temps
 
 
+# IPMI Entity IDs we're confident about translating to a human label. Full
+# range is defined by the IPMI spec (Table 43-13); only the ones relevant to
+# a server chassis and that we're sure of are listed — anything else just
+# shows the raw "entity" code so nothing is silently mislabeled.
+KNOWN_ENTITY_IDS = {
+    3: "Processor",
+    7: "System Board",
+    10: "Power Supply",
+    29: "Fan/Cooling",
+    55: "Air Inlet",
+}
+
+
+def ipmi_list_sensor_entities(settings):
+    """Best-effort: map sensor name -> ordered list of raw Entity IDs (e.g. "7.2")
+    via `ipmitool sdr elist full`. This is the same underlying IPMI metadata
+    tools like Dell OMSA use to tell sensors apart by physical role even when
+    their names collide — `sensor list` doesn't expose it, `sdr elist` does."""
+    cmd = _ipmi_base_cmd(settings) + ["sdr", "elist", "full"]
+    try:
+        out = _run(cmd, settings["ipmi_timeout"])
+    except RuntimeError:
+        return {}
+    if out.returncode != 0:
+        return {}
+    entities = {}
+    for line in out.stdout.splitlines():
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) < 4:
+            continue
+        name, entity = parts[0], parts[3]
+        entities.setdefault(name, []).append(entity)
+    return entities
+
+
 def ipmi_list_sensors(settings):
     """List temperature sensors via `ipmitool sensor list`, for the Settings UI dropdown."""
     cmd = _ipmi_base_cmd(settings) + ["sensor", "list"]
@@ -298,6 +333,26 @@ def ipmi_list_sensors(settings):
             s["instance"] = seen[s["name"]]
         else:
             s["instance"] = None
+
+    # Layer in Entity IDs (best-effort — if this call fails or the output
+    # doesn't parse as expected, sensors just keep their name-based instance
+    # numbering above instead of the extra entity hint).
+    entities = ipmi_list_sensor_entities(settings)
+    name_index = {}
+    for s in sensors:
+        idx = name_index.get(s["name"], 0)
+        name_index[s["name"]] = idx + 1
+        ent_list = entities.get(s["name"], [])
+        entity = ent_list[idx] if idx < len(ent_list) else None
+        s["entity"] = entity
+        entity_id = None
+        if entity:
+            try:
+                entity_id = int(entity.split(".")[0])
+            except ValueError:
+                pass
+        s["entity_label"] = KNOWN_ENTITY_IDS.get(entity_id)
+
     return sensors
 
 
