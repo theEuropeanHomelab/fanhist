@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fanhist{% block title %}{% endblock %}</title>
+<script>
+  // Applied before first paint so switching themes doesn't flash the wrong one.
+  (function () {
+    var t = localStorage.getItem('fanhist_theme');
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+{% block head_extra %}{% endblock %}
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --accent: #e8562f; --text: #1a1a1a; --muted: #666;
+    --input-bg: #f0f1f3; --border: #d5d7dc; --code-bg: #eceef1; --ok: #1a9850; --fail: #d9363e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --panel: #1e2127; --accent: #e8562f; --text: #eee; --muted: #999;
+      --input-bg: #2a2e36; --border: #3a3f4a; --code-bg: #171a1f; --ok: #4dd67a; --fail: #ff6b6b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161a; --panel: #1e2127; --accent: #e8562f; --text: #eee; --muted: #999;
+    --input-bg: #2a2e36; --border: #3a3f4a; --code-bg: #171a1f; --ok: #4dd67a; --fail: #ff6b6b;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f5f7; --panel: #ffffff; --accent: #e8562f; --text: #1a1a1a; --muted: #666;
+    --input-bg: #f0f1f3; --border: #d5d7dc; --code-bg: #eceef1; --ok: #1a9850; --fail: #d9363e;
+  }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, Segoe UI, sans-serif; margin: 0; padding: 24px; }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top-bar h1 { margin: 0; }
+  .top-bar h1 a { color: var(--accent); text-decoration: none; font-weight: 700; letter-spacing: 0.5px; }
+  .nav-links { display: flex; gap: 4px 16px; flex-wrap: wrap; margin-right: auto; margin-left: 24px; }
+  .nav-links a { color: var(--muted); text-decoration: none; font-weight: 600; padding: 4px 0; }
+  .nav-links a:hover { color: var(--text); }
+  .nav-links a.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+  #themeToggle { min-width: 0; padding: 6px 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 16px 0 24px; }
+  .card { background: var(--panel); border-radius: 10px; padding: 16px 20px; }
+  .card .label { color: var(--muted); font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px; }
+  .card .value { font-size: 2em; font-weight: 600; margin-top: 4px; }
+  .panel { background: var(--panel); border-radius: 10px; padding: 20px; margin-bottom: 24px; }
+  select, button, input { background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
+  button { background: var(--accent); color: #fff; border: none; cursor: pointer; font-weight: 600; }
+  button:hover { opacity: 0.9; }
+  table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 12px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  td:last-child, th:last-child { width: 36px; }
+  td input { width: 100%; box-sizing: border-box; }
+  .error { color: var(--fail); margin-top: 10px; }
+  canvas { max-height: 320px; }
+  h3 { margin: 20px 0 8px; font-size: 1em; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  h3:first-of-type { margin-top: 0; }
+  .field-row { display: flex; flex-wrap: wrap; gap: 14px; margin: 8px 0; }
+  .field-row label, label.block { display: flex; flex-direction: column; gap: 4px; font-size: 0.85em; color: var(--muted); }
+  label.block { margin: 10px 0; }
+  .field-row input, .field-row select { color: var(--text); min-width: 180px; }
+  textarea { background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-family: ui-monospace, monospace; font-size: 0.85em; resize: vertical; width: 100%; box-sizing: border-box; }
+  .test-result { margin-left: 10px; font-size: 0.9em; }
+  .test-result.ok { color: var(--ok); }
+  .test-result.fail { color: var(--fail); }
+  .ssh-key-box { background: var(--code-bg); border-radius: 8px; padding: 12px 14px; margin: 12px 0; }
+  .muted { color: var(--muted); font-size: 0.9em; }
+  .sensor-checklist { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 4px 0 12px; }
+  .sensor-check { display: flex; align-items: center; gap: 6px; font-size: 0.9em; color: var(--text); cursor: pointer; }
+  .sensor-check input { margin: 0; }
+  .sensor-group-heading { color: var(--muted); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.5px; margin: 10px 0 2px; }
+  .sensor-group-heading:first-child { margin-top: 0; }
+</style>
+</head>
+<body>
+  <div class="top-bar">
+    <h1><a href="/">fanhist</a></h1>
+    <nav class="nav-links">
+      <a href="/" class="{{ 'active' if active_page == 'dashboard' else '' }}">Dashboard</a>
+      <a href="/settings" class="{{ 'active' if active_page == 'settings' else '' }}">Settings</a>
+    </nav>
+    <select id="themeToggle" title="Theme">
+      <option value="system">System theme</option>
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
+    </select>
+  </div>
+
+  {% block content %}{% endblock %}
+
+  <div class="muted" id="versionFooter" style="text-align:center; margin: -8px 0 8px;"></div>
+
+{% block scripts %}{% endblock %}
+<script>
+function currentTextColor() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
+}
+
+function setTheme(value, redraw) {
+  const root = document.documentElement;
+  if (value === 'light' || value === 'dark') {
+    root.setAttribute('data-theme', value);
+    localStorage.setItem('fanhist_theme', value);
+  } else {
+    root.removeAttribute('data-theme');
+    localStorage.removeItem('fanhist_theme');
+  }
+  if (typeof Chart !== 'undefined') Chart.defaults.color = currentTextColor();
+  if (redraw) {
+    if (typeof refreshHistory === 'function') refreshHistory();
+    if (typeof renderCurveChart === 'function') renderCurveChart();
+  }
+}
+
+const savedTheme = localStorage.getItem('fanhist_theme');
+document.getElementById('themeToggle').value = (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'system';
+setTheme(savedTheme || 'system', false);
+document.getElementById('themeToggle').addEventListener('change', e => setTheme(e.target.value, true));
+
+async function loadVersion() {
+  const r = await fetch('/api/version');
+  const s = await r.json();
+  document.getElementById('versionFooter').textContent = 'build: ' + s.git_sha.slice(0, 7);
+}
+loadVersion();
+</script>
+</body>
+</html>

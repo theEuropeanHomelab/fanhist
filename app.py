@@ -564,7 +564,12 @@ def control_loop():
 
 @app.route("/")
 def dashboard():
-    return render_template("dashboard.html")
+    return render_template("dashboard.html", active_page="dashboard")
+
+
+@app.route("/settings")
+def settings_page():
+    return render_template("settings.html", active_page="settings")
 
 
 @app.route("/api/status")
