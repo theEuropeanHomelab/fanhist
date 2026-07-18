@@ -160,14 +160,26 @@ async function refreshHistory() {
     data: {
       labels,
       datasets: [
-        { label: 'Temp (°C)', data: eff, borderColor: '#e8562f', yAxisID: 'y', tension: 0.2, pointRadius: 0 },
-        { label: 'Fan (%)', data: fan, borderColor: '#4da3ff', yAxisID: 'y1', tension: 0.2, pointRadius: 0 },
+        { label: 'Temp (°C)', data: eff, borderColor: '#e8562f', yAxisID: 'y', tension: 0.2, pointRadius: 0, pointHitRadius: 8 },
+        { label: 'Fan (%)', data: fan, borderColor: '#4da3ff', yAxisID: 'y1', tension: 0.2, pointRadius: 0, pointHitRadius: 8 },
       ],
     },
     options: {
+      interaction: { mode: 'index', intersect: false },
+      plugins: { tooltip: { mode: 'index', intersect: false } },
       scales: {
-        y: { position: 'left', title: { display: true, text: '°C' } },
-        y1: { position: 'right', title: { display: true, text: '%' }, grid: { drawOnChartArea: false } },
+        y: {
+          position: 'left',
+          title: { display: true, text: 'Temp (°C)', color: '#e8562f' },
+          ticks: { color: '#e8562f' },
+          grid: { color: 'rgba(232, 86, 47, 0.12)' },
+        },
+        y1: {
+          position: 'right',
+          title: { display: true, text: 'Fan (%)', color: '#4da3ff' },
+          ticks: { color: '#4da3ff' },
+          grid: { drawOnChartArea: false },
+        },
       },
     },
   });
