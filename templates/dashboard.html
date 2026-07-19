@@ -18,7 +18,12 @@
       <option value="24" selected>24 hours</option>
       <option value="168">7 days</option>
     </select>
-    <canvas id="historyChart"></canvas>
+    <button id="resetZoomBtn" onclick="resetHistoryZoom()" style="display:none">Reset zoom</button>
+    <div style="position: relative;">
+      <canvas id="historyChart"></canvas>
+      <div id="historyZoomOverlay" style="position:absolute; top:0; bottom:0; background:rgba(232,86,47,0.15); border-left:1px solid var(--accent); border-right:1px solid var(--accent); display:none; pointer-events:none;"></div>
+    </div>
+    <div class="muted" style="font-size:0.8em; margin-top:4px;">Drag on the chart to zoom into a time range.</div>
   </div>
 
   <div class="panel">
@@ -43,6 +48,10 @@ async function refreshStatus() {
 }
 
 let chart;
+let historyLabels = [];
+let historyZoomRange = null; // [startLabel, endLabel] or null for full range
+let historyDragStartX = null;
+
 async function refreshHistory() {
   const hours = document.getElementById('rangeSelect').value;
   const r = await fetch('/api/history?hours=' + hours);
@@ -50,6 +59,7 @@ async function refreshHistory() {
   const labels = data.map(d => new Date(d.ts + 'Z').toLocaleTimeString());
   const eff = data.map(d => d.effective_temp);
   const fan = data.map(d => d.fan_percent);
+  historyLabels = labels;
 
   if (chart) chart.destroy();
   const ctx = document.getElementById('historyChart').getContext('2d');
@@ -66,6 +76,7 @@ async function refreshHistory() {
       interaction: { mode: 'index', intersect: false },
       plugins: { tooltip: { mode: 'index', intersect: false } },
       scales: {
+        x: {},
         y: {
           position: 'left',
           title: { display: true, text: 'Temp (°C)', color: '#e8562f' },
@@ -80,6 +91,70 @@ async function refreshHistory() {
         },
       },
     },
+  });
+  applyHistoryZoom();
+}
+
+function applyHistoryZoom() {
+  if (!chart) return;
+  const btn = document.getElementById('resetZoomBtn');
+  if (historyZoomRange) {
+    chart.options.scales.x.min = historyZoomRange[0];
+    chart.options.scales.x.max = historyZoomRange[1];
+    btn.style.display = '';
+  } else {
+    delete chart.options.scales.x.min;
+    delete chart.options.scales.x.max;
+    btn.style.display = 'none';
+  }
+  chart.update();
+}
+
+function resetHistoryZoom() {
+  historyZoomRange = null;
+  applyHistoryZoom();
+}
+
+function setupHistoryZoomDrag() {
+  const canvas = document.getElementById('historyChart');
+  const overlay = document.getElementById('historyZoomOverlay');
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (!chart) return;
+    const rect = canvas.getBoundingClientRect();
+    historyDragStartX = e.clientX - rect.left;
+    overlay.style.left = historyDragStartX + 'px';
+    overlay.style.width = '0px';
+    overlay.style.display = 'block';
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (historyDragStartX === null) return;
+    const rect = canvas.getBoundingClientRect();
+    const currentX = e.clientX - rect.left;
+    overlay.style.left = Math.min(historyDragStartX, currentX) + 'px';
+    overlay.style.width = Math.abs(currentX - historyDragStartX) + 'px';
+  });
+
+  const endDrag = (e) => {
+    if (historyDragStartX === null || !chart) return;
+    const rect = canvas.getBoundingClientRect();
+    const endX = e.clientX - rect.left;
+    overlay.style.display = 'none';
+
+    if (Math.abs(endX - historyDragStartX) > 10) { // ignore accidental tiny drags/clicks
+      const startLabel = chart.scales.x.getValueForPixel(historyDragStartX);
+      const endLabel = chart.scales.x.getValueForPixel(endX);
+      const [a, b] = [startLabel, endLabel].sort((x, y) => x - y);
+      historyZoomRange = [historyLabels[a], historyLabels[b]];
+      applyHistoryZoom();
+    }
+    historyDragStartX = null;
+  };
+  canvas.addEventListener('mouseup', endDrag);
+  canvas.addEventListener('mouseleave', () => {
+    historyDragStartX = null;
+    overlay.style.display = 'none';
   });
 }
 
@@ -205,7 +280,11 @@ async function loadCurve() {
   renderCurveTable();
 }
 
-document.getElementById('rangeSelect').addEventListener('change', refreshHistory);
+document.getElementById('rangeSelect').addEventListener('change', () => {
+  historyZoomRange = null; // switching ranges starts fresh
+  refreshHistory();
+});
+setupHistoryZoomDrag();
 
 loadCurve();
 refreshStatus();
