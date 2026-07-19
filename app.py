@@ -227,7 +227,7 @@ def settings_with_overrides(overrides):
 
 def _ipmi_base_cmd(settings):
     return [
-        "ipmitool", "-I", "lanplus",
+        "ipmitool", "-I", "lanplus", "-L", "ADMINISTRATOR",
         "-H", settings["idrac_host"], "-U", settings["idrac_user"], "-P", settings["idrac_pass"],
     ]
 
