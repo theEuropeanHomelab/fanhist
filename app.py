@@ -237,9 +237,10 @@ def _racadm_base_cmd(settings):
     # Try sshpass if available (allows password auth)
     try:
         subprocess.run(["which", "sshpass"], capture_output=True, check=True, timeout=5)
-        # With sshpass, allow password auth (don't use BatchMode)
+        # With sshpass, force password auth and disable key-based auth
         ssh_cmd = [
             "ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
+            "-o", "PubkeyAuthentication=no",  # Force password auth, disable key-based
             f"{settings['idrac_user']}@{settings['idrac_host']}", "racadm",
         ]
         return ["sshpass", "-p", settings["idrac_pass"]] + ssh_cmd
