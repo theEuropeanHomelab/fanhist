@@ -9,7 +9,7 @@ web dashboard — no config files, no restarts. Inspired by [Hush](https://githu
 but built simpler and with built-in history.
 
 **Tested on: Dell PowerEdge R720 with iDRAC 7.** See [Compatibility](#compatibility) below
-for what's expected to work on other Dell generations (R610–R940, iDRAC 6/7/8/9) and what
+for what's expected to work on other Dell generations (R610–R940, iDRAC 6/7/8) and what
 won't (non-Dell BMCs like HPE iLO or Supermicro IPMI).
 
 ## Screenshots
