@@ -232,6 +232,22 @@ def _ipmi_base_cmd(settings):
     ]
 
 
+def _racadm_base_cmd(settings):
+    """Build RACADM command via SSH. Requires either sshpass or SSH key auth configured."""
+    ssh_cmd = [
+        "ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
+        "-o", "BatchMode=yes",  # Fail immediately if password auth required and no key
+        f"{settings['idrac_user']}@{settings['idrac_host']}", "racadm",
+    ]
+    # Try sshpass if available (allows password auth)
+    try:
+        subprocess.run(["which", "sshpass"], capture_output=True, check=True, timeout=5)
+        return ["sshpass", "-p", settings["idrac_pass"]] + ssh_cmd
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fall back to key-based auth (assumes SSH keys are configured)
+        return ssh_cmd
+
+
 def _run(cmd, timeout, check=False):
     """subprocess.run wrapper that never lets the raw argv (which may contain
     the iDRAC password via -P) leak into an exception's string form — both
@@ -370,6 +386,16 @@ def ipmi_set_fan_percent(settings, percent):
     percent = max(0, min(100, int(round(percent))))
     hex_val = f"0x{percent:02x}"
     cmd = _ipmi_base_cmd(settings) + ["raw", "0x30", "0x30", "0x02", "0xff", hex_val]
+    _run(cmd, settings["ipmi_timeout"], check=True)
+
+
+def racadm_set_fan_speed(settings, percent):
+    """Set fan speed via iDRAC9 RACADM (via SSH). iDRAC9 doesn't support manual mode,
+    so we use MinimumFanSpeed (PWM 8-100) instead. Map 0-100% → 8-100 PWM."""
+    percent = max(0, min(100, int(round(percent))))
+    # Map 0-100% to PWM 8-100 (iDRAC9 MinimumFanSpeed range)
+    pwm = int(8 + (percent / 100.0) * (100 - 8))
+    cmd = _racadm_base_cmd(settings) + ["set", "System.ThermalSettings", f"MinimumFanSpeed={pwm}"]
     _run(cmd, settings["ipmi_timeout"], check=True)
 
 
@@ -530,12 +556,17 @@ def control_loop():
             curve = db_get_curve()
             fan_percent = curve_percent_for_temp(curve, effective_temp)
             try:
-                # Re-assert manual mode every cycle, not just once. If anything
-                # external (another tool, a BMC reset, iDRAC watchdog) flips
-                # the fan controller back to automatic, this recovers on the
-                # next cycle instead of silently sending ignored commands.
-                ipmi_set_manual_mode(settings)
-                ipmi_set_fan_percent(settings, fan_percent)
+                # Try iDRAC9 RACADM first (via SSH), fall back to raw IPMI for older versions
+                try:
+                    racadm_set_fan_speed(settings, fan_percent)
+                except Exception:
+                    # Fallback to raw IPMI for iDRAC 7/8
+                    # Re-assert manual mode every cycle, not just once. If anything
+                    # external (another tool, a BMC reset, iDRAC watchdog) flips
+                    # the fan controller back to automatic, this recovers on the
+                    # next cycle instead of silently sending ignored commands.
+                    ipmi_set_manual_mode(settings)
+                    ipmi_set_fan_percent(settings, fan_percent)
             except Exception as exc:
                 error = (error + " | " if error else "") + f"Fan set failed: {exc}"
 
