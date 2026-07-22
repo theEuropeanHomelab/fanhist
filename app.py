@@ -234,17 +234,22 @@ def _ipmi_base_cmd(settings):
 
 def _racadm_base_cmd(settings):
     """Build RACADM command via SSH. Requires either sshpass or SSH key auth configured."""
-    ssh_cmd = [
-        "ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
-        "-o", "BatchMode=yes",  # Fail immediately if password auth required and no key
-        f"{settings['idrac_user']}@{settings['idrac_host']}", "racadm",
-    ]
     # Try sshpass if available (allows password auth)
     try:
         subprocess.run(["which", "sshpass"], capture_output=True, check=True, timeout=5)
+        # With sshpass, allow password auth (don't use BatchMode)
+        ssh_cmd = [
+            "ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
+            f"{settings['idrac_user']}@{settings['idrac_host']}", "racadm",
+        ]
         return ["sshpass", "-p", settings["idrac_pass"]] + ssh_cmd
     except (subprocess.CalledProcessError, FileNotFoundError):
         # Fall back to key-based auth (assumes SSH keys are configured)
+        ssh_cmd = [
+            "ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
+            "-o", "BatchMode=yes",  # Fail immediately if password auth required and no key
+            f"{settings['idrac_user']}@{settings['idrac_host']}", "racadm",
+        ]
         return ssh_cmd
 
 
