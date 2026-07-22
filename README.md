@@ -72,7 +72,7 @@ requested fan percentage actually changes real fan RPM (via the BMC's own web UI
 ## Quick start
 
 Every push to `main` is automatically built and published to
-`ghcr.io/grassiekuik/fanhist:latest` by [a GitHub Actions workflow](.github/workflows/docker-publish.yml),
+`ghcr.io/theeuropeanhomelab/fanhist:latest` by [a GitHub Actions workflow](.github/workflows/docker-publish.yml),
 so `docker-compose.yml` just pulls the image — no need to have the source checked out on
 whatever host/UI you deploy with (e.g. a stack manager that only takes a compose file).
 
@@ -105,18 +105,18 @@ database under `./data` — so they survive a container restart or rebuild.
 
 ## Versioning
 
-`ghcr.io/grassiekuik/fanhist:latest` always tracks the tip of `main` — convenient, but it
+`ghcr.io/theeuropeanhomelab/fanhist:latest` always tracks the tip of `main` — convenient, but it
 means a bad change can reach you immediately. Tagged releases are also published (e.g.
-`ghcr.io/grassiekuik/fanhist:1.0.0`, see the [tags](https://github.com/grassiekuik/fanhist/tags)
+`ghcr.io/theeuropeanhomelab/fanhist:1.0.0`, see the [tags](https://github.com/theEuropeanHomelab/fanhist/tags)
 page) if you'd rather pin to a known-good version and upgrade deliberately:
 
 ```yaml
-image: ghcr.io/grassiekuik/fanhist:1.0.0   # instead of :latest
+image: ghcr.io/theeuropeanhomelab/fanhist:1.0.0   # instead of :latest
 ```
 
 Also useful for checking exactly what's running: every image has the git commit baked in
 via the `GIT_SHA` build arg, shown in the dashboard footer (`build: abc1234`) and at
-`/api/version` — compare that against [the commit history](https://github.com/grassiekuik/fanhist/commits/main)
+`/api/version` — compare that against [the commit history](https://github.com/theEuropeanHomelab/fanhist/commits/main)
 if you're ever unsure whether a redeploy actually picked up a new image.
 
 ## Settings
@@ -160,7 +160,7 @@ each container is fully independent with its own settings, curve, and history. C
 ```yaml
 services:
   fanhist-server2:            # different service/container name
-    image: ghcr.io/grassiekuik/fanhist:latest
+    image: ghcr.io/theeuropeanhomelab/fanhist:latest
     container_name: fanhist-server2
     restart: unless-stopped
     ports:
