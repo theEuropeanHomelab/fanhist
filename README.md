@@ -61,8 +61,8 @@ undocumented, and not guaranteed to behave identically across every iDRAC firmwa
 
 | Hardware | Expected to work? |
 |---|---|
-| Dell PowerEdge 10th–13th gen (iDRAC 6/7/8 — R610/R710/R715, R620/R720/R820, R630/R730/R830, etc.) | **Likely** — this is the well-established version of the trick, and what this project is actually tested against (R720 + iDRAC 7). |
-| Dell PowerEdge 14th gen+ (iDRAC 9 — R640/R740/R940, R650/R750, etc.) | **Uncertain** — community reports are mixed; some firmware versions restrict or change manual fan control behavior. Try it, but verify actual fan RPM changes (e.g. in iDRAC's own web UI) before trusting it unattended. |
+| Dell PowerEdge 10th–13th gen (iDRAC 6/7/8 — R610/R710/R715, R620/R720/R820, R630/R730/R830, etc.) | **Yes** — this is the well-established version of the trick, and what this project is actually tested against (R720 + iDRAC 7). |
+| Dell PowerEdge 14th gen+ (iDRAC 9 — R640/R740/R940, R650/R750, etc.) | **No** — iDRAC 9 firmware restricts manual fan control. Raw IPMI OEM commands (`0x30 0x30`) fail with "Insufficient privilege level" errors, and RACADM tools do not support remote fan speed configuration. Sensor *reading* works fine, but automatic thermal control only. |
 | Non-Dell servers (HPE iLO, Supermicro IPMI, Lenovo XCC, etc.) | **No** — the raw fan-control commands are Dell-specific. Sensor *reading* would still work over standard IPMI, but fan *control* would need different raw commands for that vendor. |
 
 If you're on untested hardware: follow the Warning above closely, and cross-check that a
