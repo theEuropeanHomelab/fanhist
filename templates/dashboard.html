@@ -121,27 +121,27 @@ function setupHistoryZoomDrag() {
   const canvas = document.getElementById('historyChart');
   const overlay = document.getElementById('historyZoomOverlay');
 
-  canvas.addEventListener('mousedown', (e) => {
+  function startDrag(clientX) {
     if (!chart) return;
     const rect = canvas.getBoundingClientRect();
-    historyDragStartX = e.clientX - rect.left;
+    historyDragStartX = clientX - rect.left;
     overlay.style.left = historyDragStartX + 'px';
     overlay.style.width = '0px';
     overlay.style.display = 'block';
-  });
+  }
 
-  canvas.addEventListener('mousemove', (e) => {
+  function moveDrag(clientX) {
     if (historyDragStartX === null) return;
     const rect = canvas.getBoundingClientRect();
-    const currentX = e.clientX - rect.left;
+    const currentX = clientX - rect.left;
     overlay.style.left = Math.min(historyDragStartX, currentX) + 'px';
     overlay.style.width = Math.abs(currentX - historyDragStartX) + 'px';
-  });
+  }
 
-  const endDrag = (e) => {
+  function endDrag(clientX) {
     if (historyDragStartX === null || !chart) return;
     const rect = canvas.getBoundingClientRect();
-    const endX = e.clientX - rect.left;
+    const endX = clientX - rect.left;
     overlay.style.display = 'none';
 
     if (Math.abs(endX - historyDragStartX) > 10) { // ignore accidental tiny drags/clicks
@@ -152,11 +152,31 @@ function setupHistoryZoomDrag() {
       applyHistoryZoom();
     }
     historyDragStartX = null;
-  };
-  canvas.addEventListener('mouseup', endDrag);
+  }
+
+  // Mouse events
+  canvas.addEventListener('mousedown', (e) => startDrag(e.clientX));
+  canvas.addEventListener('mousemove', (e) => moveDrag(e.clientX));
+  canvas.addEventListener('mouseup', (e) => endDrag(e.clientX));
   canvas.addEventListener('mouseleave', () => {
     historyDragStartX = null;
     overlay.style.display = 'none';
+  });
+
+  // Touch events
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) startDrag(e.touches[0].clientX);
+  });
+  canvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 1) {
+      e.preventDefault();
+      moveDrag(e.touches[0].clientX);
+    }
+  });
+  canvas.addEventListener('touchend', (e) => {
+    if (e.touches.length === 0 && historyDragStartX !== null) {
+      endDrag(e.changedTouches[0].clientX);
+    }
   });
 }
 
