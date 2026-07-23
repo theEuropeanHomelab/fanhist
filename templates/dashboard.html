@@ -19,7 +19,7 @@
       <option value="168">7 days</option>
     </select>
     <button id="resetZoomBtn" onclick="resetHistoryZoom()" style="display:none">Reset zoom</button>
-    <div style="position: relative;">
+    <div style="position: relative; height: 320px;">
       <canvas id="historyChart"></canvas>
       <div id="historyZoomOverlay" style="position:absolute; top:0; bottom:0; background:rgba(232,86,47,0.15); border-left:1px solid var(--accent); border-right:1px solid var(--accent); display:none; pointer-events:none;"></div>
     </div>
@@ -73,6 +73,8 @@ async function refreshHistory() {
       ],
     },
     options: {
+      maintainAspectRatio: false,
+      responsive: true,
       interaction: { mode: 'index', intersect: false },
       plugins: { tooltip: { mode: 'index', intersect: false } },
       scales: {
